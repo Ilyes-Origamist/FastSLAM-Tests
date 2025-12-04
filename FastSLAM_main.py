@@ -20,7 +20,7 @@ def random_direction():
     theta = np.random.rand() * 2 * np.pi
     return theta
 
-def detect_obstacle(sensor_img, threshold=0.5):
+def detect_obstacle(sensor_img, threshold=0.6):
     """
     RandomEx tests obstacles in a future 'patch'.
     Since RobotSim returns a rotated 50x50 local map:
@@ -30,7 +30,7 @@ def detect_obstacle(sensor_img, threshold=0.5):
 
     Equivalent to randomex's: sense_local_obstacles(grid, nx, ny)
     """
-    forward_region = sensor_img[0:12, 10:40]   # center-top slice
+    forward_region = sensor_img[0:15, 12:38]   # center-top slice
     return np.any(forward_region > threshold)
 
 def choose_new_direction():
@@ -42,8 +42,8 @@ def choose_new_direction():
 
 if __name__ == "__main__":
     # Control parameters (step sizes similar to randomex)
-    STEP_SIZE = 6                # forward distance per move
-    TURN_SPEED_DEG = 35         # how much a rotation step applies (scaled)
+    STEP_SIZE = 5                # forward distance per move
+    TURN_SPEED_DEG = 20         # how much a rotation step applies (scaled)
     
     # Noise parameters
     noise_dist = 0.5
