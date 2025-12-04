@@ -195,7 +195,7 @@ if __name__ == "__main__":
             ax4.set_ylabel('Theta (deg)')
             ax4.plot(i, np.degrees(best_particle.theta), 'go')
             ax4.plot(i, coordGT[2], 'ro')
-            ax4.set_xlim(0, 500)
+            ax4.set_xlim(0, 5000)
             ax4.set_ylim(-180, 180)
             
             plt.draw()
