@@ -131,8 +131,11 @@ class FastSLAMParticle:
         ix = np.round(xw).astype(int)
         iy = np.round(yw).astype(int)
         
-        # Create mask for valid indices
+        # Create mask for valid indices AND valid measurements (not unknown/artifact)
         valid_mask = (ix >= 0) & (ix < self.map_width) & (iy >= 0) & (iy < self.map_height)
+        # Filter out measurements close to 0.5 (unknown/rotation artifacts)
+        measurement_valid = np.abs(local_map - 0.5) > 0.15  # only use confident measurements
+        valid_mask = valid_mask & measurement_valid
         
         # Extract valid measurements and map values
         meas_p_valid = local_map[valid_mask]
@@ -179,8 +182,11 @@ class FastSLAMParticle:
         ix = np.round(xw).astype(int)
         iy = np.round(yw).astype(int)
         
-        # Mask for valid indices
+        # Mask for valid indices AND confident measurements
         valid_mask = (ix >= 0) & (ix < self.map_width) & (iy >= 0) & (iy < self.map_height)
+        # Only fuse confident measurements (not rotation artifacts near 0.5)
+        measurement_valid = np.abs(local_map - 0.5) > 0.15
+        valid_mask = valid_mask & measurement_valid
         
         # Get valid measurements
         meas_p_valid = local_map[valid_mask]

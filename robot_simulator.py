@@ -62,10 +62,14 @@ class RobotSim:
         xt = int(self.x)
         yt = int(self.y)
         sensorImage = self.map[xt-25:xt+25, yt-25:yt+25]
+        # Use cval=0.5 to fill rotated corners with "unknown" instead of black
+        # This prevents artifacts in the corners from being interpreted as free space
         sensorImage = rotate(sensorImage,
                              angle=self.theta
                                     + 90
                                     + np.random.normal(scale=self.sigmaSensor),
-                             reshape=False)
-        sensorImage = 0.99*sensorImage + 0.01*np.random.random((50, 50))
+                             reshape=False,
+                             cval=0.5,  # fill with neutral/unknown value
+                             order=1)   # bilinear interpolation
+        sensorImage = 0.9*sensorImage + 0.1*np.random.random((50, 50))
         return sensorImage
