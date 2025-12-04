@@ -8,16 +8,43 @@ import random
 import time
 from FastSlamPf import ParticleFilter, FastSLAMParticle, sigmoid, logit
 from robot_simulator import RobotSim
-# from robot import RobotModel
 
-random.seed(42)
-np.random.seed(42)
+random.seed(43)
+np.random.seed(43)
 
+
+# = RANDOMEX-LIKE NAVIGATION LOGIC =
+
+def random_direction():
+    """Faithful to randomex: returns a random heading angle in radians."""
+    theta = np.random.rand() * 2 * np.pi
+    return theta
+
+def detect_obstacle(sensor_img, threshold=0.6):
+    """
+    RandomEx tests obstacles in a future 'patch'.
+    Since RobotSim returns a rotated 50x50 local map:
+
+    - Forward = TOP of image
+    - Check a forward window for any strong obstacle pixel.
+
+    Equivalent to randomex's: sense_local_obstacles(grid, nx, ny)
+    """
+    forward_region = sensor_img[0:15, 12:38]   # center-top slice
+    return np.any(forward_region > threshold)
+
+def choose_new_direction():
+    """RandomEx-style: pick a new global random heading (no bias)."""
+    return random_direction()
+
+
+# = MAIN PROGRAM =
 
 if __name__ == "__main__":
-    # Control commands
-    dx = 3.0  # pixels
-    dtheta = 1.0  # degrees
+    # Control parameters (step sizes similar to randomex)
+    STEP_SIZE = 5                # forward distance per move
+    TURN_SPEED_DEG = 20         # how much a rotation step applies (scaled)
+    
     # Noise parameters
     noise_dist = 0.5
     noise_rot = 0.1
@@ -33,12 +60,8 @@ if __name__ == "__main__":
     }
     sim = RobotSim(**robot_params)
 
-    # Initial coordinates : (x, y, theta) = (30, 30, 0)
-    # x and y: pixels
-    # theta: degrees
-
     # Initialize particle filter
-    num_particles = 30  # Reduced for speed
+    num_particles = 50
     particle_filter = ParticleFilter(
         N=num_particles,
         particle_cls=FastSLAMParticle,
@@ -57,14 +80,11 @@ if __name__ == "__main__":
         prior_prob=0.5
     )
     
-    # Motion and sensor noise parameters
     resample_threshold = num_particles / 2
 
     plt.ion()
     i = 0
     
-    # Pre-create figure for faster updates
-    # 4 subplots
     fig = plt.figure(figsize=(12, 4))
     ax1 = plt.subplot(221)
     ax2 = plt.subplot(222)
@@ -74,41 +94,84 @@ if __name__ == "__main__":
     best_particle_poses = []
     ground_truth_poses = []
 
+
+    # RandomEx Navigation State 
+    current_heading = random_direction()  # global heading (radians)
+
+
+
+    # /// MAIN LOOP ////////////////////////////////////////////
+
+
+    # We must read at least one sensor image before navigation decisions.
+    # Perform a dummy call to get initial image:
+
+    init_dx = 0.0
+    init_dtheta = 0.0
+    data, coordGT = sim.commandAndGetData(init_dx, init_dtheta)
+
+
     while True:
         
-        # print('iteration ', i)
         start_time = time.time()
+
+        
+        # RANDOMEX-LIKE DECISION MAKING PRIOR TO MOVEMENT 
+        
+
+        obstacle = detect_obstacle(data)
+
+        if obstacle:
+            # Obstacle detected → choose a new random heading
+            current_heading = choose_new_direction()
+            forward_dx = 0.0
+            turn_angle_deg = np.degrees(current_heading) - coordGT[2]
+            # Normalize turn
+            if turn_angle_deg > 180: turn_angle_deg -= 360
+            if turn_angle_deg < -180: turn_angle_deg += 360
+        else:
+            # Safe path → continue in current random direction
+            forward_dx = STEP_SIZE
+            turn_angle_deg = 0.0    # keep heading
+        
+        # Convert heading change into movement command
+        # RobotSim expects dtheta in degrees
+        # Limit rotation each step (so large heading changes take multiple steps)
+        if abs(turn_angle_deg) > TURN_SPEED_DEG:
+            dtheta = np.sign(turn_angle_deg) * TURN_SPEED_DEG
+            forward_dx = 0.0   # rotate in place if large correction needed
+        else:
+            dtheta = turn_angle_deg
+
+        dx = forward_dx
+
+        
+        # APPLY MOVEMENT AND GET SENSOR DATA 
+        
+
         try:
             data, coordGT = sim.commandAndGetData(dx, dtheta)
-            # data: scan of the surrounding of the robot
-            #       (50x50 image in robot frame)
-            # coordGT: Ground Truth of the actual position
-            #           of the robot
-            # Parameters of the function: dx and dtheta, control
-            #                               command of the robot
         except Exception as e:
             print(repr(e))
             break
         
-        # FastSLAM Prediction Step: Apply motion model
+        
+        #  FASTSLAM PREDICTION / UPDATE 
+        
+
         particle_filter.predict((dx, np.radians(dtheta)))
-    
-        # FastSLAM Update Step: Incorporate sensor measurement
         particle_filter.update(data, resample_threshold=0.5, alpha=1.0)
         
-        # Get best particle for visualization
         best_particle, weights = particle_filter.get_best_particle()
-        
-        # print(f"Processing time: {time.time() - start_time:.3f}s")
-        
-        # print(f"Best particle pose: ({best_particle.x:.1f}, {best_particle.y:.1f}, {np.degrees(best_particle.theta):.1f}°)")
-        # print(f"Ground truth pose: ({coordGT[0]:.1f}, {coordGT[1]:.1f}, {coordGT[2]:.1f}°)")
         
         best_particle_poses.append((best_particle.x, best_particle.y, best_particle.theta))
         ground_truth_poses.append(coordGT)
         
-        # Update visualization only every N iterations for speed
-        if i % 1 == 0:  # Can change to % 2 or % 3 for even faster updates
+        
+        # LIVE VISUALIZATION 
+        
+
+        if i % 1 == 0:
             sim.map[int(coordGT[0]), int(coordGT[1])] = 0.5
             
             ax1.clear()
@@ -126,16 +189,14 @@ if __name__ == "__main__":
             ax3.imshow(estimated_map_prob, interpolation="None", vmin=0, vmax=1)
             ax3.plot(best_particle.y, best_particle.x, 'go', markersize=5)
             
-            # simplified: do not redraw per-iteration full theta history (avoid slowdown)
             ax4.clear()
             ax4.set_title('Theta (deg) latest')
             ax4.set_xlabel('Iteration')
             ax4.set_ylabel('Theta (deg)')
-            # plot only latest values for lightweight live feedback
             ax4.plot(i, np.degrees(best_particle.theta), 'go')
             ax4.plot(i, coordGT[2], 'ro')
-            ax4.set_xlim(0, 500)      # static x-axis (iterations) -- adjust if you expect more iterations
-            ax4.set_ylim(-180, 180)   # static y-axis for theta in degrees
+            ax4.set_xlim(0, 500)
+            ax4.set_ylim(-180, 180)
             
             plt.draw()
             plt.pause(0.01)
@@ -145,34 +206,35 @@ if __name__ == "__main__":
     plt.ioff()
     plt.show()
 
-    # --- static plots after the run (full history, fixed axes) ---
+
+    # === FINAL STATIC PLOTS 
+
+
     if len(best_particle_poses) > 0:
-        bp = np.array(best_particle_poses)            # shape (T,3) -> (x,y,theta)
-        gt = np.array(ground_truth_poses)             # shape (T,3) -> (x,y,theta_degrees)
+        bp = np.array(best_particle_poses)
+        gt = np.array(ground_truth_poses)
 
         fig2, (ax_xy, ax_theta) = plt.subplots(1, 2, figsize=(12, 5))
 
-        # Trajectory: x vs y (fixed axis to map size)
         ax_xy.plot(bp[:, 0], bp[:, 1], 'g-', label='Estimate (x,y)')
         ax_xy.plot(gt[:, 0], gt[:, 1], 'r--', label='Ground Truth (x,y)')
         ax_xy.set_title('Trajectory')
         ax_xy.set_xlabel('x')
         ax_xy.set_ylabel('y')
-        ax_xy.set_xlim(0, 500)   # static limits matching map size
+        ax_xy.set_xlim(0, 500)
         ax_xy.set_ylim(0, 500)
         ax_xy.set_aspect('equal')
         ax_xy.legend()
         ax_xy.grid(True)
 
-        # Theta vs iteration (fixed y-limits)
         iters = np.arange(bp.shape[0])
         ax_theta.plot(iters, np.degrees(bp[:, 2]), 'g-', label='Estimate theta (deg)')
         ax_theta.plot(iters, gt[:, 2], 'r--', label='GT theta (deg)')
         ax_theta.set_title('Theta over time')
         ax_theta.set_xlabel('Iteration')
         ax_theta.set_ylabel('Theta (deg)')
-        ax_theta.set_xlim(0, max(50, bp.shape[0]))  # static-ish x limit, expands if few iters
-        ax_theta.set_ylim(-180, 180)                # fixed y-limits
+        ax_theta.set_xlim(0, max(50, bp.shape[0]))
+        ax_theta.set_ylim(-180, 180)
         ax_theta.legend()
         ax_theta.grid(True)
 
