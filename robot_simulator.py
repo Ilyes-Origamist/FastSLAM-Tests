@@ -23,7 +23,9 @@ class RobotSim:
         self.theta = params.get('theta', 0)
         self.sigmaDTheta = params.get('sigmaDTheta', 1)
         self.sigmaDx = params.get('sigmaDx', 0.5)
-        self.sigmaSensor = params.get('sigmaSensor', 1)
+        self.sigmaSensorAngle = params.get('sigmaSensorAngle', 1)
+        self.sizeSensor = params.get('sizeSensor', 50)
+        self.sensorNoiseRatio = params.get('sensorNoiseRatio', 0.1)
         self.map = self.generateMap()
 
     def commandAndGetData(self, dx, dtheta):
@@ -67,9 +69,9 @@ class RobotSim:
         sensorImage = rotate(sensorImage,
                              angle=self.theta
                                     + 90
-                                    + np.random.normal(scale=self.sigmaSensor),
+                                    + np.random.normal(scale=self.sigmaSensorAngle),
                              reshape=False,
                              cval=0.5,  # fill with neutral/unknown value
                              order=1)   # bilinear interpolation
-        sensorImage = 0.9*sensorImage + 0.1*np.random.random((50, 50))
+        sensorImage = (1 - self.sensorNoiseRatio) * sensorImage + self.sensorNoiseRatio * np.random.random((50, 50))
         return sensorImage

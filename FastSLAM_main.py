@@ -17,6 +17,9 @@ np.random.seed(42)
 
 
 if __name__ == "__main__":
+    # Toggle between teleoperation and predefined commands
+    use_teleop = True  # Set to False to use predefined dx and dtheta
+    
     # Control commands
     dx = 2.0  # pixels (will be overridden by teleop)
     dtheta = 0.0  # degrees (will be overridden by teleop)
@@ -24,15 +27,18 @@ if __name__ == "__main__":
     # Noise parameters
     noise_dist = 0.5
     noise_rot = 0.1
-    noise_sensor = 0.3
-    
+    noise_sensor_angle = 0.3
+    noise_sensor = 0.1
+    # Initialize robot simulator
     robot_params = {
         'x': 30,
         'y': 30,
         'theta': 0,
         'sigmaDTheta': noise_rot,
         'sigmaDx': noise_dist,
-        'sigmaSensor': noise_sensor
+        'sigmaSensorAngle': noise_sensor_angle,
+        'sensorNoiseRatio': noise_sensor,
+        'sizeSensor': 50
     }
     sim = RobotSim(**robot_params)
 
@@ -61,7 +67,8 @@ if __name__ == "__main__":
     )
     
     # Initialize teleoperation controller
-    teleop = TeleoperationController(default_speed=2.0, default_turn=5.0)
+    if use_teleop:
+        teleop = TeleoperationController(default_speed=2.0, default_turn=5.0)
     
     # Motion and sensor noise parameters
     resample_threshold = num_particles / 2
@@ -77,22 +84,28 @@ if __name__ == "__main__":
     ax4 = plt.subplot(224)
     
     # Connect keyboard events
-    fig.canvas.mpl_connect('key_press_event', teleop.on_key_press)
-    fig.canvas.mpl_connect('key_release_event', teleop.on_key_release)
+    if use_teleop:
+        fig.canvas.mpl_connect('key_press_event', teleop.on_key_press)
+        fig.canvas.mpl_connect('key_release_event', teleop.on_key_release)
     
     best_particle_poses = []
     ground_truth_poses = []
 
-    print("Starting teleoperation mode. Use arrow keys to control the robot.")
-    print("Click on the figure window to ensure it has focus for keyboard input.\n")
+    if use_teleop:
+        print("Starting teleoperation mode. Use arrow keys to control the robot.")
+        print("Click on the figure window to ensure it has focus for keyboard input.\n")
+    else:
+        print("Starting predefined control mode.")
+        print(f"Using dx={dx}, dtheta={dtheta}\n")
 
     while True:
         
         # Get control command from teleoperation
-        dx, dtheta = teleop.get_command()
+        if use_teleop:
+            dx, dtheta = teleop.get_command()
         
         # Skip iteration if paused
-        if dx == 0.0 and dtheta == 0.0 and teleop.paused:
+        if use_teleop and dx == 0.0 and dtheta == 0.0 and teleop.paused:
             plt.pause(0.05)
             continue
         
@@ -126,7 +139,8 @@ if __name__ == "__main__":
             sim.map[int(coordGT[0]), int(coordGT[1])] = 0.5
             
             ax1.clear()
-            ax1.set_title(f'Ground Truth Map [{teleop.mode.upper()}]')
+            mode_label = teleop.mode.upper() if use_teleop else 'AUTO'
+            ax1.set_title(f'Ground Truth Map [{mode_label}]')
             ax1.imshow(sim.map, interpolation="None", vmin=0, vmax=1)
             ax1.plot(coordGT[1], coordGT[0], 'ro', markersize=5)
             # Show control info
@@ -144,15 +158,27 @@ if __name__ == "__main__":
             ax3.plot(best_particle.y, best_particle.x, 'go', markersize=5)
             
             ax4.clear()
-            ax4.set_title('Pose Tracking')
-            ax4.set_xlabel('Iteration')
-            ax4.set_ylabel('Theta (deg)')
-            ax4.plot(i, np.degrees(best_particle.theta), 'go', label='Est')
-            ax4.plot(i, coordGT[2], 'ro', label='GT')
-            ax4.set_xlim(max(0, i-100), i+10)
-            ax4.set_ylim(-180, 180)
+            ax4.set_title('Particle Distribution')
+            ax4.set_xlabel('X (pixels)')
+            ax4.set_ylabel('Y (pixels)')
+            
+            # Plot all particles
+            particle_x = [p.x for p in particle_filter.particles]
+            particle_y = [p.y for p in particle_filter.particles]
+            ax4.scatter(particle_x, particle_y, c='blue', s=20, alpha=0.5, label='Particles')
+            
+            # Plot best particle
+            ax4.plot(best_particle.x, best_particle.y, 'go', markersize=10, label='Best Est', markeredgecolor='black')
+            
+            # Plot ground truth
+            ax4.plot(coordGT[0], coordGT[1], 'ro', markersize=10, label='GT', markeredgecolor='black')
+            
+            ax4.set_xlim(0, 500)
+            ax4.set_ylim(0, 500)
+            ax4.set_aspect('equal')
             if i == 0:
                 ax4.legend()
+            ax4.grid(True, alpha=0.3)
             
             plt.draw()
             plt.pause(0.01)
