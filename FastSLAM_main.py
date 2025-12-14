@@ -6,12 +6,11 @@ import matplotlib.pyplot as plt
 import random
 import time
 # FastSLAM particle filter components
-from FastSlamPf import ParticleFilter, FastSLAMParticle, sigmoid, logit
+from src.core import FastSLAMParticle, ParticleFilter, sigmoid, logit
 # motion strategies
-from teleop import TeleoperationController
-from randomExNav import RandomExNavigator
+from src.motion_planning import TeleoperationController, RandomExNavigator
 # robot motion simulator
-from robot_simulator import RobotSim
+from src.simulation import RobotSim
 # from robot import RobotModel
 
 random.seed(42)
