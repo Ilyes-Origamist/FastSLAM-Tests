@@ -28,18 +28,37 @@ A particle filter-based implementation of the FastSLAM algorithm for simultaneou
 
 2. **Install dependencies:**
     ```bash
-    pip install numpy scipy matplotlib
+    pip install numpy scipy matplotlib pyyaml
     ```
 
-3. **Run the FastSLAM algorithm:**
+3. **Configure parameters:**
+   Edit `config.yaml` to adjust:
+   - Motion strategy (`teleop`, `random_nav`, or `predefined`)
+   - Number of particles
+   - Noise parameters
+   - Map dimensions
+   - Other algorithm parameters
+
+4. **Run the FastSLAM algorithm:**
    ```bash
-   python main.py
+   python FastSLAM_main.py
    ```
 
-4. **Configuration:**
-In `FastSLAM_main.py`:
-   - Choose motion strategy: `teleop`, `random_nav` or `predefined`.
-   - Adjust particle filter and noise parameters.
+**Note:** All parameters are now centralized in `config.yaml`. No need to modify the source code for common adjustments.
+
+
+## Running Tests
+Test scripts for checking each test unit for debugging.
+```bash
+# Run all tests
+python -m unittest discover tests
+
+# Run specific test file
+python -m unittest tests.test_particle
+
+# Run with verbose output
+python -m unittest discover tests -v
+```
 
 ## Documentation
 

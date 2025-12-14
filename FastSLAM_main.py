@@ -5,81 +5,63 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import time
+import sys
 # FastSLAM particle filter components
 from src.core import FastSLAMParticle, ParticleFilter, sigmoid, logit
 # motion strategies
 from src.motion_planning import TeleoperationController, RandomExNavigator
 # robot motion simulator
 from src.simulation import RobotSim
-# from robot import RobotModel
+# configuration
+from src.utils import load_config, get_robot_params, get_particle_filter_params, print_config
 
-random.seed(42)
-np.random.seed(42)
+# Load configuration
+try:
+    config = load_config("config.yaml")
+    print("=== Configuration Loaded ===")
+    print_config(config)
+    print("=" * 30 + "\n")
+except Exception as e:
+    print(f"Error loading configuration: {e}")
+    sys.exit(1)
+
+# Set random seeds
+if config.random_seed is not None:
+    random.seed(config.random_seed)
+    np.random.seed(config.random_seed)
 
 # = MAIN PROGRAM =
 
 if __name__ == "__main__":
-    # Toggle between teleoperation and predefined commands
-    # use_teleop = True  # Set to False to use predefined dx and dtheta
-    
-    motion_strat = 'random_nav' # 'teleop' or 'random_nav', or 'predefined'
+    # Get motion strategy from config
+    motion_strat = config.motion_strategy
     use_teleop = (motion_strat == 'teleop')
     use_random_nav = (motion_strat == 'random_nav')
 
-    # Control commands
-    dx = 2.0  # pixels (will be overridden by teleop)
-    dtheta = 0.0  # degrees (will be overridden by teleop)
+    # Control commands from config
+    dx = config.predefined_control.dx
+    dtheta = config.predefined_control.dtheta
     
-    # Noise parameters
-    noise_dist = 0.5
-    noise_rot = 0.1
-    noise_sensor_angle = 0.3
-    noise_sensor = 0.1
-    # Initialize robot simulator
-    robot_params = {
-        'x': 30,
-        'y': 30,
-        'theta': 0,
-        'sigmaDTheta': noise_rot,
-        'sigmaDx': noise_dist,
-        'sigmaSensorAngle': noise_sensor_angle,
-        'sensorNoiseRatio': noise_sensor,
-        'sizeSensor': 50
-    }
+    # Initialize robot simulator with config parameters
+    robot_params = get_robot_params(config)
     sim = RobotSim(**robot_params)
 
-    # Initial coordinates : (x, y, theta) = (30, 30, 0)
-    # x and y: pixels
-    # theta: degrees
-
-    # Initialize particle filter
-    num_particles = 30  # Reduced for speed
+    # Initialize particle filter with config parameters
+    pf_params = get_particle_filter_params(config)
     particle_filter = ParticleFilter(
-        N=num_particles,
         particle_cls=FastSLAMParticle,
-        x_initial=30,
-        y_initial=30,
-        theta_initial=0.0,
-        x_range=[-1, 1],
-        y_range=[-1, 1],
-        theta_range=[-0.1, 0.1],
-        local_map_size=50,
-        map_width=500,
-        map_height=500,
-        motion_noise=noise_dist,
-        turn_noise=np.radians(noise_rot*0.8),
-        measurement_noise=noise_sensor*0.8,
-        prior_prob=0.5
+        **pf_params
     )
     
-    # Motion and sensor noise parameters
-    resample_threshold = num_particles / 2
+    # Resampling threshold from config
+    resample_threshold = config.particle_filter.resample_threshold
 
     plt.ion()
     i = 0
     
-    # Pre-create figure for faster updates
-    fig = plt.figure(figsize=(12, 4))
+    # Pre-create figure with config dimensions
+    fig = plt.figure(figsize=(config.visualization.figure_width, 
+                              config.visualization.figure_height))
     ax1 = plt.subplot(221)
     ax2 = plt.subplot(222)
     ax3 = plt.subplot(223)
@@ -87,16 +69,22 @@ if __name__ == "__main__":
     
     # Initialize objects for motion control
     if use_teleop:
-        # Initialize teleoperation controller
-        teleop = TeleoperationController(default_speed=2.0, default_turn=5.0)
+        # Initialize teleoperation controller with config
+        teleop = TeleoperationController(
+            default_speed=config.motion_planning.teleop.default_speed,
+            default_turn=config.motion_planning.teleop.default_turn
+        )
         # Connect keyboard events
         fig.canvas.mpl_connect('key_press_event', teleop.on_key_press)
         fig.canvas.mpl_connect('key_release_event', teleop.on_key_release)
         print("Starting teleoperation mode. Use arrow keys to control the robot.")
         print("Click on the figure window to ensure it has focus for keyboard input.\n")
     elif use_random_nav:
-        # Initialize RandomEx-like navigator
-        navigator = RandomExNavigator(step_size=5, turn_speed_deg=20)
+        # Initialize RandomEx-like navigator with config
+        navigator = RandomExNavigator(
+            step_size=config.motion_planning.random_nav.step_size,
+            turn_speed_deg=config.motion_planning.random_nav.turn_speed
+        )
         print("Starting RandomEx-like navigation mode.\n")
     else:
         print("Starting predefined control mode.")
@@ -148,8 +136,8 @@ if __name__ == "__main__":
         best_particle_poses.append((best_particle.x, best_particle.y, best_particle.theta))
         ground_truth_poses.append(coordGT)
         
-        # Update visualization
-        if i % 1 == 0:
+        # Update visualization with config frequency
+        if i % config.visualization.update_frequency == 0:
             sim.map[int(coordGT[0]), int(coordGT[1])] = 0.5
             
             ax1.clear()

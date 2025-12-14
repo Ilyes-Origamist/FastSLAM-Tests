@@ -1,0 +1,66 @@
+# FastSLAM Configuration File
+
+# Motion Planning Strategy
+# Options: 'teleop', 'random_nav', 'predefined'
+motion_strategy: 'random_nav'
+
+# Predefined Control Commands (used when motion_strategy = 'predefined')
+predefined_control:
+  dx: 2.0          # pixels
+  dtheta: 0.0      # degrees
+
+# Noise Parameters
+noise:
+  distance: 0.5              # Motion distance noise (pixels)
+  rotation: 0.1              # Motion rotation noise (degrees)
+  sensor_angle: 0.3          # Sensor angle noise
+  sensor_ratio: 0.1          # Sensor measurement noise ratio
+
+# Robot Simulator Parameters
+robot:
+  initial_x: 30              # Initial x position (pixels)
+  initial_y: 30              # Initial y position (pixels)
+  initial_theta: 0           # Initial orientation (degrees)
+  sensor_size: 50            # Sensor grid size (pixels)
+
+# Particle Filter Parameters
+particle_filter:
+  num_particles: 30          # Number of particles
+  
+  # Initial pose uncertainty
+  x_range: [-1, 1]           # X position range around initial (pixels)
+  y_range: [-1, 1]           # Y position range around initial (pixels)
+  theta_range: [-0.1, 0.1]   # Theta range around initial (radians)
+  
+  # Map parameters
+  local_map_size: 50         # Local sensor map size
+  map_width: 500             # Global map width (pixels)
+  map_height: 500            # Global map height (pixels)
+  
+  # Noise scaling factors (applied to robot noise)
+  motion_noise_scale: 1.0    # Scale factor for motion noise
+  turn_noise_scale: 0.8      # Scale factor for turn noise
+  measurement_noise_scale: 0.8  # Scale factor for measurement noise
+  
+  # Other parameters
+  prior_prob: 0.5            # Prior occupancy probability
+  resample_threshold: 0.5    # Resampling threshold (fraction of num_particles)
+
+# Motion Planning Parameters
+motion_planning:
+  teleop:
+    default_speed: 2.0       # Default forward speed (pixels)
+    default_turn: 5.0        # Default turn speed (degrees)
+  
+  random_nav:
+    step_size: 5             # Forward step size (pixels)
+    turn_speed: 20           # Turn speed (degrees)
+
+# Visualization Parameters
+visualization:
+  update_frequency: 1        # Update plot every N iterations
+  figure_width: 12           # Figure width (inches)
+  figure_height: 4           # Figure height (inches)
+
+# Random Seed (set to null for random behavior)
+random_seed: 42
