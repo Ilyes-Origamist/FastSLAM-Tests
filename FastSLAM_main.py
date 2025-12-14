@@ -3,7 +3,6 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import imageio.v2
 import random
 import time
 from FastSlamPf import ParticleFilter, FastSLAMParticle, sigmoid, logit
@@ -15,10 +14,16 @@ random.seed(42)
 np.random.seed(42)
 
 
+# wrapper for motion strategy
+
 
 if __name__ == "__main__":
     # Toggle between teleoperation and predefined commands
-    use_teleop = True  # Set to False to use predefined dx and dtheta
+    # use_teleop = True  # Set to False to use predefined dx and dtheta
+    
+    motion_strat = 'teleop' # or 'random_nav', or 'predefined'
+    use_teleop = (motion_strat == 'teleop')
+    use_random_nav = (motion_strat == 'random_nav')
     
     # Control commands
     dx = 2.0  # pixels (will be overridden by teleop)
@@ -66,10 +71,6 @@ if __name__ == "__main__":
         prior_prob=0.5
     )
     
-    # Initialize teleoperation controller
-    if use_teleop:
-        teleop = TeleoperationController(default_speed=2.0, default_turn=5.0)
-    
     # Motion and sensor noise parameters
     resample_threshold = num_particles / 2
 
@@ -85,30 +86,33 @@ if __name__ == "__main__":
     
     # Connect keyboard events
     if use_teleop:
+        # Initialize teleoperation controller
+        teleop = TeleoperationController(default_speed=2.0, default_turn=5.0)
         fig.canvas.mpl_connect('key_press_event', teleop.on_key_press)
         fig.canvas.mpl_connect('key_release_event', teleop.on_key_release)
-    
-    best_particle_poses = []
-    ground_truth_poses = []
-
-    if use_teleop:
         print("Starting teleoperation mode. Use arrow keys to control the robot.")
         print("Click on the figure window to ensure it has focus for keyboard input.\n")
     else:
         print("Starting predefined control mode.")
         print(f"Using dx={dx}, dtheta={dtheta}\n")
 
+    best_particle_poses = []
+    ground_truth_poses = []
+
     while True:
         
+        # Compute control commands
+
         # Get control command from teleoperation
         if use_teleop:
+            # If paused, skip sending commands
+            if dx == 0.0 and dtheta == 0.0 and teleop.paused:
+                plt.pause(0.05)
+                continue
             dx, dtheta = teleop.get_command()
-        
-        # Skip iteration if paused
-        if use_teleop and dx == 0.0 and dtheta == 0.0 and teleop.paused:
-            plt.pause(0.05)
-            continue
-        
+        elif motion_strat == 'random_nav':
+            pass
+
         start_time = time.time()
         try:
             data, coordGT = sim.commandAndGetData(dx, dtheta)

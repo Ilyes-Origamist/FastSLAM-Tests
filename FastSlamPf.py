@@ -1,5 +1,5 @@
 # fastslam_grid_particle.py
-# Clean, corrected, minimal FastSLAM-like particle filter using occupancy grids (log-odds)
+# Minimal FastSLAM 1.0 particle filter using occupancy grids (log-odds)
 # - Particles store pose (x,y,theta) and an occupancy grid in log-odds
 # - Motion update uses noisy odometry
 # - Measurement update: 1) compute log-likelihood per particle (no map change)
@@ -205,7 +205,7 @@ class FastSLAMParticle:
             -20.0, 20.0
         )
 
-# ---------- Particle Filter controller ----------
+# ---------- Particle Filter Class ----------
 class ParticleFilter:
     def __init__(self, N, particle_cls, **params):
         self.N = N

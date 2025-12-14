@@ -1,7 +1,6 @@
 
 import matplotlib.pyplot as plt
 
-# ---------- Teleoperation Controller ----------
 class TeleoperationController:
     """
     Simple keyboard teleoperation controller.
