@@ -5,26 +5,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import time
+# FastSLAM particle filter components
 from FastSlamPf import ParticleFilter, FastSLAMParticle, sigmoid, logit
+# motion strategies
 from teleop import TeleoperationController
+from randomExNav import RandomExNavigator
+# robot motion simulator
 from robot_simulator import RobotSim
 # from robot import RobotModel
 
 random.seed(42)
 np.random.seed(42)
 
-
-# wrapper for motion strategy
-
+# = MAIN PROGRAM =
 
 if __name__ == "__main__":
     # Toggle between teleoperation and predefined commands
     # use_teleop = True  # Set to False to use predefined dx and dtheta
     
-    motion_strat = 'teleop' # or 'random_nav', or 'predefined'
+    motion_strat = 'random_nav' # 'teleop' or 'random_nav', or 'predefined'
     use_teleop = (motion_strat == 'teleop')
     use_random_nav = (motion_strat == 'random_nav')
-    
+
     # Control commands
     dx = 2.0  # pixels (will be overridden by teleop)
     dtheta = 0.0  # degrees (will be overridden by teleop)
@@ -84,14 +86,19 @@ if __name__ == "__main__":
     ax3 = plt.subplot(223)
     ax4 = plt.subplot(224)
     
-    # Connect keyboard events
+    # Initialize objects for motion control
     if use_teleop:
         # Initialize teleoperation controller
         teleop = TeleoperationController(default_speed=2.0, default_turn=5.0)
+        # Connect keyboard events
         fig.canvas.mpl_connect('key_press_event', teleop.on_key_press)
         fig.canvas.mpl_connect('key_release_event', teleop.on_key_release)
         print("Starting teleoperation mode. Use arrow keys to control the robot.")
         print("Click on the figure window to ensure it has focus for keyboard input.\n")
+    elif use_random_nav:
+        # Initialize RandomEx-like navigator
+        navigator = RandomExNavigator(step_size=5, turn_speed_deg=20)
+        print("Starting RandomEx-like navigation mode.\n")
     else:
         print("Starting predefined control mode.")
         print(f"Using dx={dx}, dtheta={dtheta}\n")
@@ -99,10 +106,12 @@ if __name__ == "__main__":
     best_particle_poses = []
     ground_truth_poses = []
 
+    # Initial data fetch
+    data, coordGT = sim.commandAndGetData(dx, dtheta)
+
     while True:
         
         # Compute control commands
-
         # Get control command from teleoperation
         if use_teleop:
             # If paused, skip sending commands
@@ -111,8 +120,10 @@ if __name__ == "__main__":
                 continue
             dx, dtheta = teleop.get_command()
         elif motion_strat == 'random_nav':
-            pass
-
+            # RANDOMEX-LIKE DECISION MAKING PRIOR TO MOVEMENT 
+            dx, dtheta = navigator.compute_commands(data, coordGT[2])
+        # else: use predefined dx and dtheta
+        
         start_time = time.time()
         try:
             data, coordGT = sim.commandAndGetData(dx, dtheta)
@@ -143,7 +154,7 @@ if __name__ == "__main__":
             sim.map[int(coordGT[0]), int(coordGT[1])] = 0.5
             
             ax1.clear()
-            mode_label = teleop.mode.upper() if use_teleop else 'AUTO'
+            mode_label = teleop.mode.upper() if use_teleop else 'RANDOMEX' if use_random_nav else 'PREDEFINED'
             ax1.set_title(f'Ground Truth Map [{mode_label}]')
             ax1.imshow(sim.map, interpolation="None", vmin=0, vmax=1)
             ax1.plot(coordGT[1], coordGT[0], 'ro', markersize=5)

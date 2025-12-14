@@ -3,6 +3,12 @@
 ## Overview
 FastSLAM (Fast Simultaneous Localization and Mapping) is a particle filter-based approach that solves the SLAM problem by representing the posterior over robot poses and maps using a particle filter. Each particle maintains its own pose estimate and occupancy grid map.
 
+## Motion Planning
+Three motion planning strategies:
+- Teleoperation (Manual control)
+- RandomEx navigation (Autonomous Control)
+- Redefined (use constant values)
+
 ## Algorithm Steps
 
 ### 1. **Initialization**

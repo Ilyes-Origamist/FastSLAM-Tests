@@ -16,7 +16,7 @@ A particle filter-based implementation of the FastSLAM algorithm for simultaneou
 
 ## TODO
 - Add support for different sensor models
-- Add configuration file support
+- Add configuration file support (define all parameters in a config file)
 - Implement map saving/loading functionality
 
 ## How to Run
@@ -37,8 +37,9 @@ A particle filter-based implementation of the FastSLAM algorithm for simultaneou
    ```
 
 4. **Configuration:**
-   - Adjust parameters in `config.py` (number of particles, noise levels, etc.)
-   - Modify sensor input source in `FastSLAM_main.py`
+In `FastSLAM_main.py`:
+   - Choose motion strategy: `teleop`, `random_nav` or `predefined`.
+   - Adjust particle filter and noise parameters.
 
 ## Documentation
 
